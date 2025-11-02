@@ -13,7 +13,7 @@
 .type nameStr,%gnu_unique_object
     
 /*** STUDENTS: Change the next line to your name!  **/
-nameStr: .asciz "Inigo Montoya"  
+nameStr: .asciz "Amanda Earney"  
  
 .align
 
@@ -80,7 +80,45 @@ nanValue: .word 0x7FFFFFFF
  .type initVariables,%function
 initVariables:
     /* YOUR initVariables CODE BELOW THIS LINE! Don't forget to push and pop! */
+    push {r4-r11, LR}
+    
+    LDR r4, =0
+    
+    LDR r5, =f0 
+    STR r4, [r5]
+    LDR r5, =sb0
+    STR r4, [r5]
+    LDR r5, =storedExp0
+    STR r4, [r5]
+    LDR r5, =realExp0
+    STR r4, [r5]
+    LDR r5, =mant0
+    STR r4, [r5]
+    
+    LDR r5, =f1
+    STR r4, [r5]
+    LDR r5, =sb1
+    STR r4, [r5]
+    LDR r5, =storedExp1
+    STR r4, [r5]
+    LDR r5, =realExp1
+    STR r4, [r5]
+    LDR r5, =mant1
+    STR r4, [r5]
 
+    LDR r5, =fMax
+    STR r4, [r5]
+    LDR r5, =sbMax
+    STR r4, [r5]
+    LDR r5, =storedExpMax
+    STR r4, [r5]
+    LDR r5, =realExpMax
+    STR r4, [r5]
+    LDR r5, =mantMax
+    STR r4, [r5]
+    
+    pop {r4-r11, LR}
+    BX LR
     /* YOUR initVariables CODE ABOVE THIS LINE! Don't forget to push and pop! */
 
     
@@ -97,7 +135,17 @@ initVariables:
 .type getSignBit,%function
 getSignBit:
     /* YOUR getSignBit CODE BELOW THIS LINE! Don't forget to push and pop! */
-
+    push {r4-r11, LR}
+    
+    LDR r4, [r0] /* puts the value to be unpacked in r4 */
+    LDR r5, =0
+    LDR r6, =1
+    TST r4, 0x80000000 /* sets z flag if value in bit 31 is 0 */
+    STREQ r5, [r1] /* puts the correct value of the sign bit into the given memory address */
+    STRNE r6, [r1]
+    
+    pop {r4-r11, LR}
+    BX LR
     /* YOUR getSignBit CODE ABOVE THIS LINE! Don't forget to push and pop! */
     
 
@@ -118,7 +166,17 @@ getSignBit:
 .type getExponent,%function
 getExponent:
     /* YOUR getExponent CODE BELOW THIS LINE! Don't forget to push and pop! */
+    push {r4-r11, LR}
     
+    LDR r4, [r0] /* puts the value to be unpacked into r4 */
+    LSL r4, r4, 1 /* removes sign bit */
+    LSR r0, r4, 24 /* removes mantissa and puts stored exp in r0 for output */
+    CMP r0, 0
+    SUBNE r1, r0, 127 /* if stored exp isn't 0, subtracts 127 and puts into r1 */
+    LDREQ r1, =-126 /* otherwise, puts -126 into r1 */
+    
+    pop {r4-r11, LR}
+    BX LR
     /* YOUR getExponent CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
 
@@ -136,7 +194,15 @@ getExponent:
 .type getMantissa,%function
 getMantissa:
     /* YOUR getMantissa CODE BELOW THIS LINE! Don't forget to push and pop! */
+    push {r4-r11, LR}
     
+    LDR r4, [r0] /* puts the value to be unpacked into r4 */
+    LDR r5, =0x007FFFFF
+    AND r0, r4, r5 /* removes the sign bit and exp and puts the mantissa into r0 */
+    ADD r1, r0, 0x00800000 /* puts the mantissa with the implied 1 into r1 */
+    
+    pop {r4-r11, LR}
+    BX LR
     /* YOUR getMantissa CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
 
@@ -156,7 +222,38 @@ getMantissa:
 .type asmIsZero,%function
 asmIsZero:
     /* YOUR asmIsZero CODE BELOW THIS LINE! Don't forget to push and pop! */
+    push {r4-r11, LR}
+     
+    MOV r4, r0 /* stores the given address between function calls */
+    BL getExponent /* r0 stored, r1 real */
+    MOV r5, r0 /* puts stored exponent into r5 */
+    MOV r0, r4 /* puts given address back into r0 */
+    BL getMantissa /* r0 without implied, r1 with */
+    MOV r6, r0 /* puts stored mantissa into r6 */
+    LDR r7, [r4] /* puts the unpacked value into r7 */
+    LSR r7, r7, 31 /* puts the value of the sign bit into r7 */
     
+    CMP r5, 0 
+    BEQ exponentZero /* exponent is 0 if z flag set */
+    B notZero
+    
+exponentZero:
+    CMP r6, 0 
+    BEQ mantissaZero /* mantissa is 0 if z flag set */
+    B notZero
+    
+mantissaZero:
+    CMP r7, 0
+    LDREQ r0, =1 /* returns 1 when +0 */
+    LDRNE r0, =-1 /* returns -1 when -0 */
+    B exitAsmIsZero
+    
+notZero:
+    LDR r0, =0 /* returns 0 when not zero */
+    
+exitAsmIsZero:
+    pop {r4-r11, LR}
+    BX LR
     /* YOUR asmIsZero CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
 
@@ -176,7 +273,38 @@ asmIsZero:
 .type asmIsInf,%function
 asmIsInf:
     /* YOUR asmIsInf CODE BELOW THIS LINE! Don't forget to push and pop! */
-
+    push {r4-r11, LR}
+    
+    MOV r4, r0 /* stores the given address between function calls */
+    BL getExponent /* r0 stored, r1 real */
+    MOV r5, r0 /* puts stored exponent into r5 */
+    MOV r0, r4 /* puts given address back into r0 */
+    BL getMantissa /* r0 without implied, r1 with */
+    MOV r6, r0 /* puts stored mantissa into r6 */
+    LDR r7, [r4] /* puts the unpacked value into r7 */
+    LSR r7, r7, 31 /* puts the value of the sign bit into r7 */
+    
+    CMP r5, 0xFF
+    BEQ exponentInf /* z flag is set if stored exponent is 0xFF */
+    B notInfinity
+    
+exponentInf:
+    CMP r6, 0
+    BEQ mantissaInf /* z flag is set if stored mantissa is 0 */
+    B notInfinity
+    
+mantissaInf:
+    CMP r7, 0
+    LDREQ r0, =1 /* returns 1 when +infinity */
+    LDRNE r0, =-1 /* returns -1 when -infinity */
+    B exitAsmIsInf
+    
+notInfinity:
+    LDR r0, =0 /* returns 0 when not infinity */
+    
+exitAsmIsInf:
+    pop {r4-r11, LR}
+    BX LR
     /* YOUR asmIsInf CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
 
@@ -215,7 +343,207 @@ where:
 asmFmax:   
 
     /* YOUR asmFmax CODE BELOW THIS LINE! VVVVVVVVVVVVVVVVVVVVV  */
-
+    push {r4-r11, LR}
+    BL initVariables
+    
+    /* store input values */
+    LDR r4, =f0
+    STR r0, [r4]
+    LDR r5, =f1
+    STR r1, [r5]
+    
+    /* unpack and store f0 values */
+    LDR r0, =f0
+    LDR r1, =sb0
+    BL getSignBit /* will update sb0 within function */
+    
+    LDR r0, =f0
+    BL getExponent /* r0 has stored, r1 has real */
+    LDR r4, =storedExp0
+    LDR r5, =realExp0
+    STR r0, [r4] /* updates exp variables */
+    STR r1, [r5]
+    
+    LDR r0, =f0
+    BL getMantissa /* r0 without implied bit, r1 with */
+    LDR r4, =storedExp0
+    LDR r5, [r4] 
+    CBZ r5, noHiddenBit0 /* determines whether to store mantissa with or without implied bit */
+    CMP r5, 255
+    BEQ noHiddenBit0
+    B hiddenBit0
+    
+noHiddenBit0:
+    LDR r4, =mant0
+    STR r0, [r4] /* puts mantissa without implied bit into mant0 */
+    B unpackF1
+    
+hiddenBit0:
+    LDR r4, =mant0
+    STR r1, [r4] /* puts mantissa with implied bit into mant0 */
+    
+unpackF1:
+    /* unpack and store f1 values */
+    LDR r0, =f1
+    LDR r1, =sb1
+    BL getSignBit /* will update sb1 within function */
+    
+    LDR r0, =f1
+    BL getExponent /* r0 has stored, r1 has real */
+    LDR r4, =storedExp1
+    LDR r5, =realExp1
+    STR r0, [r4] /* updates exp variables */
+    STR r1, [r5]
+    
+    LDR r0, =f1
+    BL getMantissa /* r0 without implied bit, r1 with */
+    LDR r4, =storedExp1
+    LDR r5, [r4] 
+    CBZ r5, noHiddenBit1 /* determines whether to store mantissa with or without implied bit */
+    CMP r5, 255
+    BEQ noHiddenBit1
+    B hiddenBit1
+    
+noHiddenBit1:
+    LDR r4, =mant1
+    STR r0, [r4] /* puts mantissa without implied bit into mant1 */
+    B checkSpecialValues
+    
+hiddenBit1:
+    LDR r4, =mant1
+    STR r1, [r4] /* puts mantissa with implied bit into mant1 */
+    
+checkSpecialValues:
+    /* check for special values */
+    LDR r0, =f0
+    BL asmIsInf /* returns 0 if f0 is not inf, 1 if +inf, -1 if -inf */
+    CMP r0, 1
+    BEQ f0Max /* if f0 is positive infinity, store it to max */
+    CMP r0, -1
+    BEQ f1Max /* if f0 is negative infinity, store f1 to max */
+    
+    LDR r0, =f1
+    BL asmIsInf /* returns 0 if f1 is not inf, 1 if +inf, -1 if -inf */
+    CMP r0, 1
+    BEQ f1Max /* if f1 is positive infinity, store it to max */
+    CMP r0, -1
+    BEQ f0Max /* if f1 is negative infinity, store f0 to max */
+    
+    /* if not determined, compare sign bit of each */
+    LDR r4, =sb0
+    LDR r5, [r4]
+    LDR r6, =sb1
+    LDR r7, [r6]
+    CMP r5, r7 /* n = 1 -> f0 greater, n = 0 -> f1 greater */
+    BEQ checkExponent /* do if sign bits are equal */
+    BMI f0Max
+    BPL f1Max
+    
+checkExponent:
+    /* if not determined, compare exponent of each */
+    LDR r4, =realExp0
+    LDR r5, [r4] 
+    LDR r6, =realExp1
+    LDR r7, [r6]
+    CMP r5, r7 /* z = 0 -> check sign bits */
+    BEQ checkMantissa /* do if exponents are equal */
+    
+    LDR r8, =sb0
+    LDR r9, [r8] /* only need to check one sign bit, bits are same if got here */
+    CMP r9, 0 /* z = 0 -> both numbers negative */
+    BNE exponentWithNegatives
+    CMP r5, r7 /* n = 0 -> f0 is greater */
+    BPL f0Max /* z flag can't be set if got here */
+    BMI f1Max
+    B checkMantissa /* skip negative section */
+    
+exponentWithNegatives:
+    CMP r5, r7 /* n = 0 -> f1 is greater */
+    BPL f1Max /* z flag can't be set if got here */
+    BMI f0Max
+    
+checkMantissa:
+    /* if not determined, compare mantissa of each */
+    LDR r4, =mant0
+    LDR r5, [r4]
+    LDR r6, =mant1
+    LDR r7, [r6]
+    CMP r5, r7 /* z = 0 -> check sign bits */
+    BEQ f0Max /* if got here, floats are equal */
+    
+    LDR r8, =sb0
+    LDR r9, [r8] /* only need to check one sign bit, bits are same if got here */
+    CMP r9, 0 /* z = 0 -> both numbers negative */
+    BNE mantissaWithNegatives
+    CMP r5, r7 /* n = 0 -> f0 is greater */
+    BPL f0Max /* z flag can't be set if got here */
+    BMI f1Max
+    B f0Max /* skip negative section */
+    
+mantissaWithNegatives:
+    CMP r5, r7 /* n = 0 -> f1 is greater */
+    BPL f1Max /* z flag can't be set if got here */
+    BMI f0Max
+    
+f0Max:
+    LDR r4, =f0
+    LDR r5, [r4] /* gets value of float */
+    LDR r6, =fMax
+    STR r5, [r6] /* stores float into max variable */
+    
+    LDR r4, =sb0
+    LDR r5, [r4] /* gets value of sign bit */
+    LDR r6, =sbMax
+    STR r5, [r6] /* stores sign bit into max variable */
+    
+    LDR r4, =storedExp0
+    LDR r5, [r4] /* gets value of biased exponent */
+    LDR r6, =storedExpMax
+    STR r5, [r6] /* stores biased exponent into max variable */
+    
+    LDR r4, =realExp0
+    LDR r5, [r4] /* gets value of real exponent */
+    LDR r6, =realExpMax
+    STR r5, [r6] /* stores real exponent into max variable */
+    
+    LDR r4, =mant0
+    LDR r5, [r4] /* gets value of mantissa */
+    LDR r6, =mantMax
+    STR r5, [r6] /* stores mantissa into max variable */
+    B returnFMax
+    
+f1Max:
+    LDR r4, =f1
+    LDR r5, [r4] /* gets value of float */
+    LDR r6, =fMax
+    STR r5, [r6] /* stores float into max variable */
+    
+    LDR r4, =sb1
+    LDR r5, [r4] /* gets value of sign bit */
+    LDR r6, =sbMax
+    STR r5, [r6] /* stores sign bit into max variable */
+    
+    LDR r4, =storedExp1
+    LDR r5, [r4] /* gets value of biased exponent */
+    LDR r6, =storedExpMax
+    STR r5, [r6] /* stores biased exponent into max variable */
+    
+    LDR r4, =realExp1
+    LDR r5, [r4] /* gets value of exponent */
+    LDR r6, =realExpMax
+    STR r5, [r6] /* stores exponent into max variable */
+    
+    LDR r4, =mant1
+    LDR r5, [r4] /* gets value of mantissa */
+    LDR r6, =mantMax
+    STR r5, [r6] /* stores mantissa into max variable */
+    
+returnFMax:
+    /* return address of fMax in r0 */
+    LDR r0, =fMax
+    
+    pop {r4-r11, LR}
+    BX LR
     /* YOUR asmFmax CODE ABOVE THIS LINE! ^^^^^^^^^^^^^^^^^^^^^  */
 
    
